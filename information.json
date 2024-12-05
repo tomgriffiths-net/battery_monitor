@@ -1,0 +1,10 @@
+{
+    "id_name": "battery_monitor",
+    "version": 1,
+    "author": "tom",
+    "name": "Battery Monitor",
+    "description": "",
+    "dependencies": {
+        
+    }
+}
