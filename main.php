@@ -1,5 +1,4 @@
 <?php
-//Your Variables go here: $GLOBALS['battery_monitor']['YourVariableName'] = YourVariableValue
 class battery_monitor{
     public static function isDischarging():bool{
         exec('WMIC Path Win32_Battery Get BatteryStatus',$output);
@@ -36,6 +35,5 @@ class battery_monitor{
             sleep(60);
             goto start;
         }
-    }//Run when base command is class name, $line is anything after base command (string). e.g. > [base command] [$line]
-    //public static function init():void{}//Run at startup
+    }
 }
