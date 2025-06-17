@@ -1,39 +1,75 @@
 <?php
 class battery_monitor{
-    public static function isDischarging():bool{
-        exec('WMIC Path Win32_Battery Get BatteryStatus',$output);
-        if(intval($output[1]) === 1){
-            return true;
-        }
-        else{
-            return false;
+    public static function init():void{
+        $defaultSettings = [
+            'shutdownTimer' => 600,
+            'shutdownCommand' => 'shutdown /s /f /t 0',
+            'batteryInterval' => 30
+        ];
+
+        foreach($defaultSettings as $name => $value){
+            settings::set($name, $value, false);
         }
     }
+    public static function isDischarging():bool{
+        exec('WMIC Path Win32_Battery Get BatteryStatus',$output);
+        return (intval($output[1]) === 1);
+    }
     public static function command($line):void{
-        echo "Monitoring battery...\n";
-        start:
-        if(self::isDischarging()){
-            mklog('warning','Battery is in discharging state, waiting 30 seconds');
-            sleep(30);
+        if($line === "loop"){
+            self::monitor();
+        }
+        else{
             if(self::isDischarging()){
-                mklog('warning','Battery has in discharging state for 30 seconds or more, shutting down computer');
-
-                //Truenas check and power off
-                if(class_exists('network') && class_exists('cmd') && class_exists('character_sender') && class_exists('txtrw')){
-                    if(network::ping('truenas.local','80')){
-                        cmd::newWindow('title TRUENAS_SSH && ssh root@truenas shutdown -p now');
-                        sleep(2);
-                        character_sender::sendString(base64_decode(base64_decode(txtrw::readtxt('p'))),"TRUENAS_SSH",true);
-                    }
-                }
-
-                //Local machine shutdown
-                exec('shutdown /s /f /t 0');
+                echo "Battery is discharging\n";
+            }
+            else{
+                echo "Battery is plugged in\n";
             }
         }
-        if($line === "loop"){
-            sleep(60);
-            goto start;
+    }
+    private static function monitor():void{
+        echo "Monitoring battery...\n";
+        
+        $batteryInterval = settings::read('batteryInterval');
+        if(!is_int($batteryInterval)){$batteryInterval = 30;}
+        $batteryInterval = min(max($batteryInterval, 5), 600);
+
+        $shutdownTimer = settings::read('shutdownTimer');
+        if(!is_int($shutdownTimer)){$shutdownTimer = 600;}
+        $shutdownTimer = min(max($shutdownTimer, 5), 3600);
+
+        $shutdownCommand = settings::read('shutdownCommand');
+        if(!is_string($shutdownCommand) || empty($shutdownCommand)){
+            $shutdownCommand = 'shutdown /s /f /t 0';
+        }
+
+        $lastDischargeTime = null;
+
+        while(true){
+            if(self::isDischarging()){
+                if($lastDischargeTime === null){
+                    $lastDischargeTime = time();
+                }
+            }
+            else{
+                $lastDischargeTime = null;
+            }
+
+            if($lastDischargeTime !== null){
+                $timeDiff = time() - $lastDischargeTime;
+                if($timeDiff > $shutdownTimer){
+                    mklog(2,'Running shutdown command (discharging for ' . $timeDiff . ' seconds)');
+                    sleep(1);
+                    exec($shutdownCommand, $output, $returnCode);
+                    if($returnCode !== 0){
+                        mklog(2, 'Shutdown command failed: ' . implode(' ', $output));
+                    }
+                    break;
+                }
+            }
+            
+            sleep($batteryInterval);
         }
     }
 }
