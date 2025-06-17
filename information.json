@@ -1,7 +1,7 @@
 {
     "id_name": "battery_monitor",
     "name": "Battery Monitor (Dev)",
-    "version": 2,
+    "version": 3,
     "author": "tom",
     "description": "",
     "dependencies": {
